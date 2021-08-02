@@ -57,8 +57,13 @@ def process_batch(lines,img_path,train=True):
     batch = np.zeros((num,16,112,112,3),dtype='float32')
     labels = np.zeros(num,dtype='int')
     for i in range(num):
-        path = lines[i].split('_')[0]+"/"+lines[i].split(' ')[0]
+        #path = lines[i].split('_')[0]+"/"+lines[i].split(' ')[0]
+        path = lines[i].split(' ')[0]
         label = lines[i].split(' ')[-1]
+        if (label == '1\n'):
+            img_path = '/home/proj_vode/jpg_dataset/Normal/'
+        else:
+            img_path = '/home/proj_vode/jpg_dataset/Kidnap/'
         symbol = lines[i].split(' ')[1]
         label = label.strip('\n')
         label = int(label)
@@ -103,7 +108,8 @@ def preprocess(inputs):
 
 
 def generator_train_batch(train_txt,batch_size,num_classes,img_path):
-    ff = open(train_txt, 'r')
+    #ff = open(train_txt, 'r')
+    ff = open('/home/proj_vode/annotation/kidnap/TrainTestlist/train_list.txt', 'r')
     lines = ff.readlines()
     num = len(lines)
     while True:
@@ -123,7 +129,8 @@ def generator_train_batch(train_txt,batch_size,num_classes,img_path):
 
 
 def generator_val_batch(val_txt,batch_size,num_classes,img_path):
-    f = open(val_txt, 'r')
+    f = open('/home/proj_vode/annotation/kidnap/TrainTestlist/test_list.txt', 'r')
+    #f = open(val_txt, 'r')
     lines = f.readlines()
     num = len(lines)
     while True:
@@ -143,9 +150,10 @@ def generator_val_batch(val_txt,batch_size,num_classes,img_path):
 
 
 def main():
-    img_path = '/home/shixi/C3D-keras/datasets/ucfimgs/'
-    train_file = 'train_list.txt'
-    test_file = 'test_list.txt'
+    #img_path = '/home/proj_vode/jpg_dataset/'
+    img_path = ''
+    train_file = '/home/proj_vode/annotation/kidnap/TrainTestlist/train_list.txt'
+    test_file = '/home/proj_vode/annotation/kidnap/TrainTestlist/test_list.txt'
     f1 = open(train_file, 'r')
     f2 = open(test_file, 'r')
     lines = f1.readlines()
@@ -162,7 +170,7 @@ def main():
     model = c3d_model()
     lr = 0.005
     sgd = SGD(lr=lr, momentum=0.9, nesterov=True)
-    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer= sgd, metrics=['accuracy'])
     model.summary()
     history = model.fit_generator(generator_train_batch(train_file, batch_size, num_classes,img_path),
                                   steps_per_epoch=train_samples // batch_size,
