@@ -168,14 +168,14 @@ def main():
     epochs = 16
 
     model = c3d_model()
-    lr = 0.005
-    sgd = SGD(lr=lr, momentum=0.9, nesterov=True)
+    learning_rate = 0.005
+    sgd = SGD(learning_rate = learning_rate, momentum=0.9, nesterov=True)
     model.compile(loss='categorical_crossentropy', optimizer= sgd, metrics=['accuracy'])
     model.summary()
     history = model.fit_generator(generator_train_batch(train_file, batch_size, num_classes,img_path),
                                   steps_per_epoch=train_samples // batch_size,
                                   epochs=epochs,
-                                  callbacks=[onetenth_4_8_12(lr)],
+                                  callbacks=[onetenth_4_8_12(learning_rate)],
                                   validation_data=generator_val_batch(test_file,
                                         batch_size,num_classes,img_path),
                                   validation_steps=val_samples // batch_size,
