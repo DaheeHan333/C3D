@@ -183,7 +183,7 @@ def main():
     #                              validation_steps=val_samples // batch_size,
     #                              verbose=1)
     history = model.fit(generator_train_batch(train_file, batch_size, num_classes,img_path),
-                                  steps_per_epoch=train_sample,
+                                  steps_per_epoch=train_samples,
                                   epochs=epochs,
                                   callbacks=[onetenth_4_8_12(learning_rate)])
 
