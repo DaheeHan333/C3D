@@ -13,7 +13,7 @@ matplotlib.use('AGG')
 import matplotlib.pyplot as plt
 
 # 使用第二张GPU卡
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 def plot_history(history, result_dir):
     plt.plot(history.history['acc'], marker='.')
@@ -91,6 +91,8 @@ def process_batch(lines,img_path,train=True):
                 image = cv2.resize(image, (171, 128))
                 batch[i][j][:][:][:] = image[8:120, 30:142, :]
             labels[i] = label
+            print(batch)
+            print(labels)
     return batch, labels
 
 
@@ -172,14 +174,25 @@ def main():
     sgd = SGD(learning_rate = learning_rate, momentum=0.9, nesterov=True)
     model.compile(loss='categorical_crossentropy', optimizer= sgd, metrics=['accuracy'])
     model.summary()
-    history = model.fit_generator(generator_train_batch(train_file, batch_size, num_classes,img_path),
-                                  steps_per_epoch=train_samples // batch_size,
+    #history = model.fit_generator(generator_train_batch(train_file, batch_size, num_classes,img_path),
+    #                              steps_per_epoch=train_samples // batch_size,
+    #                              epochs=epochs,
+    #                              callbacks=[onetenth_4_8_12(learning_rate)],
+    #                              validation_data=generator_val_batch(test_file,
+    #                                    batch_size,num_classes,img_path),
+    #                              validation_steps=val_samples // batch_size,
+    #                              verbose=1)
+    history = model.fit(generator_train_batch(train_file, batch_size, num_classes,img_path),
+                                  steps_per_epoch=train_sample,
                                   epochs=epochs,
-                                  callbacks=[onetenth_4_8_12(learning_rate)],
-                                  validation_data=generator_val_batch(test_file,
-                                        batch_size,num_classes,img_path),
-                                  validation_steps=val_samples // batch_size,
-                                  verbose=1)
+                                  callbacks=[onetenth_4_8_12(learning_rate)])
+
+    res = model.evaluate(validation_data = generator_val_batch(test_file, batch_size, num_classes, imp_path), validation_steps = val_samples)
+
+    # pre = model.predict(validation_data=generator_val_batch(test_file,
+     #   batch_size,num_classes,img_path))
+
+
     if not os.path.exists('results/'):
         os.mkdir('results/')
     plot_history(history, 'results/')
