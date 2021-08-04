@@ -109,6 +109,23 @@ def preprocess(inputs):
     return inputs
 
 
+            
+def segement(val_txt,num_classes,img_path):
+    f = open('/home/proj_vode/annotation/kidnap/TrainTestlist/test_list.txt', 'r')
+    #f = open(val_txt, 'r')
+    lines = f.readlines()
+    num = len(lines)
+    new_line = []
+    index = random.randint(0,num)
+    print(index)
+    new_line.append(lines[index])
+    y_test,y_labels = process_batch(new_line,img_path,train=False)
+    x = preprocess(y_test)
+    x = np.transpose(x,(0,2,3,1,4))
+    y = np_utils.to_categorical(np.array(y_labels), num_classes)   
+    return x, y 
+
+
 def generator_train_batch(train_txt,batch_size,num_classes,img_path):
     #ff = open(train_txt, 'r')
     ff = open('/home/proj_vode/annotation/kidnap/TrainTestlist/train_list.txt', 'r')
