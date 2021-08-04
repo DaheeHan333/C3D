@@ -5,6 +5,7 @@ from keras.models import Model
 
 def c3d_model():
     input_shape = (112,112,16,3)
+    #input_shape = (171,128,16,3)
     weight_decay = 0.005
     nb_classes = 2
 
@@ -12,18 +13,22 @@ def c3d_model():
     x = Conv3D(64,(3,3,3),strides=(1,1,1),padding='same',
                activation='relu',kernel_regularizer=l2(weight_decay))(inputs)
     x = MaxPool3D((2,2,1),strides=(2,2,1),padding='same')(x)
+    print("첫번째 conv, maxpool",x)
 
     x = Conv3D(128,(3,3,3),strides=(1,1,1),padding='same',
                activation='relu',kernel_regularizer=l2(weight_decay))(x)
     x = MaxPool3D((2,2,2),strides=(2,2,2),padding='same')(x)
+    print("두번째 conv, maxpoolx",x)
 
     x = Conv3D(128,(3,3,3),strides=(1,1,1),padding='same',
                activation='relu',kernel_regularizer=l2(weight_decay))(x)
     x = MaxPool3D((2,2,2),strides=(2,2,2),padding='same')(x)
+    
 
     x = Conv3D(256,(3,3,3),strides=(1,1,1),padding='same',
                activation='relu',kernel_regularizer=l2(weight_decay))(x)
     x = MaxPool3D((2,2,2),strides=(2,2,2),padding='same')(x)
+    #print(x.shape)
 
     x = Conv3D(256, (3, 3, 3), strides=(1, 1, 1), padding='same',
                activation='relu',kernel_regularizer=l2(weight_decay))(x)
@@ -34,8 +39,11 @@ def c3d_model():
     x = Dropout(0.5)(x)
     x = Dense(2048,activation='relu',kernel_regularizer=l2(weight_decay))(x)
     x = Dropout(0.5)(x)
-    x = Dense(nb_classes,kernel_regularizer=l2(weight_decay))(x)
-    x = Activation('softmax')(x)
+    x = Dense(512,activation='relu',kernel_regularizer=l2(weight_decay))(x)
+    x = Dropout(0.6)(x)
+    x = Dense(32,activation='relu',kernel_regularizer=l2(weight_decay))(x)
+    x = Dropout(0.6)(x)
+    x = Dense(1,activation='sigmoid',kernel_regularizer=l2(weight_decay))(x)
 
     model = Model(inputs, x)
     return model
