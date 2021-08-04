@@ -169,20 +169,26 @@ def main():
     batch_size = 16
     epochs = 16
 
-    model = c3d_model()
+        model = c3d_model()
     learning_rate = 0.005
     sgd = SGD(learning_rate = learning_rate, momentum=0.9, nesterov=True)
-    model.compile(loss='categorical_crossentropy', optimizer= sgd, metrics=['accuracy'])
+    model.compile(loss='hinge', optimizer= sgd, metrics=['accuracy'])
     model.summary()
-    
-    history = model.fit(generator_train_batch(train_file, batch_size, num_classes,img_path),
-                                  steps_per_epoch=train_samples,
+    history = model.fit_generator(generator_train_batch(train_file, batch_size, num_classes,img_path),
+                                  steps_per_epoch=train_samples // batch_size,
                                   epochs=epochs,
-                                  callbacks=[onetenth_4_8_12(learning_rate)])
+                                     callbacks=[onetenth_4_8_12(learning_rate)],
+                                  validation_data=generator_val_batch(test_file,
+                                        batch_size,num_classes,img_path),
+                                  validation_steps=val_samples // batch_size,
+                                  verbose=1)
 
-    res = model.evaluate(validation_data = generator_val_batch(test_file, batch_size, num_classes, imp_path), validation_steps = val_samples)
+    #history=model.fit(generator_train_batch(train_file, batch_size, num_classes,img_path), steps_per_epoch=train_samples // batch_size,epochs=epochs, callbacks=[onetenth_4_8_12(learning_rate)])  SVM 분류 모델 훈련
 
-    # pre = model.predict(validation_data=generator_val_batch(test_file, batch_size,num_classes,img_path))
+    #res = model.evaluate(validation_data = generator_val_batch(test_file, batch_size, num_classes, imp_path), validation_steps = val_samples)
+
+    # pre = model.predict(validation_data=generator_val_batch(test_file,
+     #   batch_size,num_classes,img_path))
 
 
     if not os.path.exists('results/'):
