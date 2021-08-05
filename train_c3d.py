@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use('AGG')
 import matplotlib.pyplot as plt
 
-# 使用第二张GPU卡
+# if "0", it means using GPU, if "-1", it means using CPU 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 def plot_history(history, result_dir):
