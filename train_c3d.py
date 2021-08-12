@@ -1,8 +1,10 @@
-# -*- coding:utf-8 -*-
-from models import c3d_model
 from keras.optimizers import SGD,Adam
 from keras.utils import np_utils
-from schedules import onetenth_4_8_12
+import tensorflow as tf
+from keras.layers import Dense,Dropout,Conv3D,Input,MaxPool3D,Flatten,Activation
+from keras.regularizers import l2
+from keras.models import Model
+import numpy as np
 import numpy as np
 import random
 import cv2
@@ -12,89 +14,35 @@ import matplotlib
 matplotlib.use('AGG')
 import matplotlib.pyplot as plt
 
-# if "0", it means using GPU, if "-1", it means using CPU 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-def plot_history(history, result_dir):
-    plt.plot(history.history['acc'], marker='.')
-    plt.plot(history.history['val_acc'], marker='.')
-    plt.title('model accuracy')
-    plt.xlabel('epoch')
-    plt.ylabel('accuracy')
-    plt.grid()
-    plt.legend(['acc', 'val_acc'], loc='lower right')
-    plt.savefig(os.path.join(result_dir, 'model_accuracy.png'))
-    plt.close()
-
-    plt.plot(history.history['loss'], marker='.')
-    plt.plot(history.history['val_loss'], marker='.')
-    plt.title('model loss')
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.grid()
-    plt.legend(['loss', 'val_loss'], loc='upper right')
-    plt.savefig(os.path.join(result_dir, 'model_loss.png'))
-    plt.close()
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1" #CPU
 
 
-def save_history(history, result_dir):
-    loss = history.history['loss']
-    acc = history.history['acc']
-    val_loss = history.history['val_loss']
-    val_acc = history.history['val_acc']
-    nb_epoch = len(acc)
+def process_batch(num, img_path, train=True):
+    batch = np.zeros((1,16,112,112,3))#batch, frame
+    imgs = os.listdir(img_path)
+    imgs.sort(key=str.lower)
 
-    with open(os.path.join(result_dir, 'result.txt'), 'w') as fp:
-        fp.write('epoch\tloss\tacc\tval_loss\tval_acc\n')
-        for i in range(nb_epoch):
-            fp.write('{}\t{}\t{}\t{}\t{}\n'.format(
-                i, loss[i], acc[i], val_loss[i], val_acc[i]))
-        fp.close()
+    if train:
+        crop_x = random.randint(0, 15)
+        crop_y = random.randint(0, 58)
+        is_flip = random.randint(0, 1)
+        for j in range(16):
+            img = imgs[j+num*16]
+            image = cv2.imread(img_path + '/' + img)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.resize(image, (171, 128))
+            if is_flip == 1:
+                image = cv2.flip(image, 1)
+            batch[0][j][:][:][:] = image[crop_x:crop_x + 112, crop_y:crop_y + 112, :]
+    else:
+        for j in range(16):
+            img = imgs[j]
+            image = cv2.imread(img_path + '/' + img)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.resize(image, (171, 128))
+            batch[0][j][:][:][:] = image[8:120, 30:142, :]
 
-        
-def process_batch(lines,img_path,train=True):
-    num = len(lines)
-    batch = np.zeros((num,16,112,112,3),dtype='float32')
-    labels = np.zeros(num,dtype='int')
-    for i in range(num):
-        #path = lines[i].split('_')[0]+"/"+lines[i].split(' ')[0]
-        path = lines[i].split(' ')[0]
-        label = lines[i].split(' ')[-1]
-        if (label == '1\n'):
-            img_path = '/home/proj_vode/jpg_dataset/Normal/'
-        else:
-            img_path = '/home/proj_vode/jpg_dataset/Kidnap/'
-        symbol = lines[i].split(' ')[1]
-        label = label.strip('\n')
-        label = int(label)
-        symbol = int(symbol)-1
-        imgs = os.listdir(img_path+path)
-        imgs.sort(key=str.lower)
-        if train:
-            crop_x = random.randint(0, 15)
-            crop_y = random.randint(0, 58)
-            is_flip = random.randint(0, 1)
-            for j in range(16):
-                img = imgs[symbol + j]
-                image = cv2.imread(img_path + path + '/' + img)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                image = cv2.resize(image, (171, 128))
-                if is_flip == 1:
-                    image = cv2.flip(image, 1)
-                batch[i][j][:][:][:] = image[crop_x:crop_x + 112, crop_y:crop_y + 112, :]
-            labels[i] = label
-        else:
-            for j in range(16):
-                img = imgs[symbol + j]
-                image = cv2.imread(img_path + path + '/' + img)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                image = cv2.resize(image, (171, 128))
-                batch[i][j][:][:][:] = image[8:120, 30:142, :]
-            labels[i] = label
-            print(batch)
-            print(labels)
-    return batch, labels
-
+    return batch
 
 def preprocess(inputs):
     inputs[..., 0] -= 99.9
@@ -109,111 +57,55 @@ def preprocess(inputs):
     return inputs
 
 
-            
-def segement(val_txt,num_classes,img_path):
-    f = open('/home/proj_vode/annotation/kidnap/TrainTestlist/test_list.txt', 'r')
-    #f = open(val_txt, 'r')
-    lines = f.readlines()
-    num = len(lines)
-    new_line = []
-    index = random.randint(0,num)
-    print(index)
-    new_line.append(lines[index])
-    y_test,y_labels = process_batch(new_line,img_path,train=False)
-    x = preprocess(y_test)
-    x = np.transpose(x,(0,2,3,1,4))
-    y = np_utils.to_categorical(np.array(y_labels), num_classes)   
-    return x, y 
-
-
-def generator_train_batch(train_txt,batch_size,num_classes,img_path):
-    #ff = open(train_txt, 'r')
-    ff = open('/home/proj_vode/annotation/kidnap/TrainTestlist/train_list.txt', 'r')
-    lines = ff.readlines()
-    num = len(lines)
-    while True:
-        new_line = []
-        index = [n for n in range(num)]
-        random.shuffle(index)
-        for m in range(num):
-            new_line.append(lines[index[m]])
-        for i in range(int(num/batch_size)):
-            a = i*batch_size
-            b = (i+1)*batch_size
-            x_train, x_labels = process_batch(new_line[a:b],img_path,train=True)
-            x = preprocess(x_train)
-            y = np_utils.to_categorical(np.array(x_labels), num_classes)
-            x = np.transpose(x, (0,2,3,1,4))
-            yield x, y
-
-
-def generator_val_batch(val_txt,batch_size,num_classes,img_path):
-    f = open('/home/proj_vode/annotation/kidnap/TrainTestlist/test_list.txt', 'r')
-    #f = open(val_txt, 'r')
-    lines = f.readlines()
-    num = len(lines)
-    while True:
-        new_line = []
-        index = [n for n in range(num)]
-        random.shuffle(index)
-        for m in range(num):
-            new_line.append(lines[index[m]])
-        for i in range(int(num / batch_size)):
-            a = i * batch_size
-            b = (i + 1) * batch_size
-            y_test,y_labels = process_batch(new_line[a:b],img_path,train=False)
-            x = preprocess(y_test)
-            x = np.transpose(x,(0,2,3,1,4))
-            y = np_utils.to_categorical(np.array(y_labels), num_classes)
-            yield x, y
-
 
 def main():
-    #img_path = '/home/proj_vode/jpg_dataset/'
-    img_path = ''
-    train_file = '/home/proj_vode/annotation/kidnap/TrainTestlist/train_list.txt'
-    test_file = '/home/proj_vode/annotation/kidnap/TrainTestlist/test_list.txt'
-    f1 = open(train_file, 'r')
-    f2 = open(test_file, 'r')
-    lines = f1.readlines()
-    f1.close()
-    train_samples = len(lines)
-    lines = f2.readlines()
-    f2.close()
-    val_samples = len(lines)
+    img_path = '/home/proj_vode/jpg_dataset/kidnap/normal'
 
+
+    action_list = os.listdir(img_path)
+    num_iter = len(action_list)
+
+    print(num_iter)
+
+    weight_decay = 0.005
     num_classes = 2
-    batch_size = 16
-    epochs = 16
+    batch_size = 32
+    #epochs = 16
 
-        model = c3d_model()
-    learning_rate = 0.005
-    sgd = SGD(learning_rate = learning_rate, momentum=0.9, nesterov=True)
-    model.compile(loss='hinge', optimizer= sgd, metrics=['accuracy'])
-    model.summary()
-    history = model.fit_generator(generator_train_batch(train_file, batch_size, num_classes,img_path),
-                                  steps_per_epoch=train_samples // batch_size,
-                                  epochs=epochs,
-                                     callbacks=[onetenth_4_8_12(learning_rate)],
-                                  validation_data=generator_val_batch(test_file,
-                                        batch_size,num_classes,img_path),
-                                  validation_steps=val_samples // batch_size,
-                                  verbose=1)
+    layer1 = Conv3D(64,(3,3,3),strides=(1,1,1),padding='same',
+               activation='relu',kernel_regularizer=l2(weight_decay))
+    layer2 = MaxPool3D((2,2,1),strides=(2,2,1),padding='same')
+    layer3 = Conv3D(128,(3,3,3),strides=(1,1,1),padding='same',
+               activation='relu',kernel_regularizer=l2(weight_decay))
+    layer4 = MaxPool3D((2,2,2),strides=(2,2,2),padding='same')
+    layer5 = Conv3D(128,(3,3,3),strides=(1,1,1),padding='same',
+               activation='relu',kernel_regularizer=l2(weight_decay))
+    layer6 = MaxPool3D((2,2,2),strides=(2,2,2),padding='same')
+    layer7 = Conv3D(256,(3,3,3),strides=(1,1,1),padding='same',
+               activation='relu',kernel_regularizer=l2(weight_decay))
+    layer8 = MaxPool3D((2,2,2),strides=(2,2,2),padding='same')
+    layer9 = Conv3D(256, (3, 3, 3), strides=(1, 1, 1), padding='same',
+               activation='relu',kernel_regularizer=l2(weight_decay))
+    layer10 = MaxPool3D((2, 2, 2), strides=(2, 2, 2), padding='same')
+    layer11 = Flatten()
+    layer12 = Dense(2048,activation='relu',kernel_regularizer=l2(weight_decay))
+    #layer13 = Dropout(0.5)
+    layer14 = Dense(2048,activation='relu',kernel_regularizer=l2(weight_decay))
+    
 
-    #history=model.fit(generator_train_batch(train_file, batch_size, num_classes,img_path), steps_per_epoch=train_samples // batch_size,epochs=epochs, callbacks=[onetenth_4_8_12(learning_rate)])  SVM 분류 모델 훈련
-
-    #res = model.evaluate(validation_data = generator_val_batch(test_file, batch_size, num_classes, imp_path), validation_steps = val_samples)
-
-    # pre = model.predict(validation_data=generator_val_batch(test_file,
-     #   batch_size,num_classes,img_path))
-
-
-    if not os.path.exists('results/'):
-        os.mkdir('results/')
-    plot_history(history, 'results/')
-    save_history(history, 'results/')
-    model.save_weights('results/weights_c3d.h5')
-
+    
+    for i in range(num_iter):
+        new_line = []
+        for j in range(32):
+            y_test = process_batch(j,img_path+'/'+action_list[i],train=True)
+            x = preprocess(y_test)
+            x = np.transpose(x,(0,2,3,1,4))
+            y = layer14(layer12(layer11(layer10(layer9(layer8(layer7(layer6(layer5(layer4(layer3(layer2(layer1(x)))))))))))))
+            y = y.numpy()
+            new_line.extend(y)
+        print(new_line)
+        print(len(new_line))
+        np.save('/home/proj_vode/numpy/normal/'+action_list[i],new_line)
 
 if __name__ == '__main__':
     main()
